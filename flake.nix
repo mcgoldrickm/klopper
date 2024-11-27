@@ -377,6 +377,237 @@
               initial_BLUE = 1.0;
               initial_WHITE = 0.0;
 	    };
+            "gcode_macro _sb_vars" = {
+              description = "User settings for the StealthBurner status leds. You can change the status colors and led";
+              # configurations for the logo and nozzle here.
+              variable_colors = {
+                'logo' =           { # Colors for logo states
+                  'busy' =          {'r': 0.40, 'g': 0.00, 'b': 0.00, 'w': 0.0};
+                  'cleaning' =      {'r': 0.00, 'g': 0.02, 'b': 0.50, 'w': 0.0};
+                  'calibrating_z' = {'r': 0.80, 'g': 0.00, 'b': 0.35, 'w': 0.0};
+                  'heating' =       {'r': 0.30, 'g': 0.18, 'b': 0.00, 'w': 0.0};
+                  'homing' =        {'r': 0.00, 'g': 0.60, 'b': 0.20, 'w': 0.0};
+                  'leveling' =      {'r': 0.50, 'g': 0.10, 'b': 0.40, 'w': 0.0};
+                  'meshing' =       {'r': 0.20, 'g': 1.00, 'b': 0.00, 'w': 0.0};
+                  'off' =           {'r': 0.00, 'g': 0.00, 'b': 0.00, 'w': 0.0};
+                  'printing' =      {'r': 1.00, 'g': 0.00, 'b': 0.00, 'w': 0.0};
+                  'standby' =       {'r': 0.01, 'g': 0.01, 'b': 0.01, 'w': 0.1};
+                };
+                'nozzle' = { # Colors for nozzle states
+                  'heating' = {'r': 0.80, 'g': 0.35, 'b': 0.00, 'w': 0.00};
+                  'off' =     {'r': 0.00, 'g': 0.00, 'b': 0.00, 'w': 0.00};
+                  'on' =      {'r': 0.80, 'g': 0.80, 'b': 0.80, 'w': 1.00};
+                  'standby' = {'r': 0.60, 'g': 0.00, 'b': 0.00, 'w': 0.00};
+                };
+                'thermal' = {
+                  'hot' =  {'r': 1.00, 'g': 0.00, 'b': 0.00, 'w': 0.00};
+                  'cold' = {'r': 0.30, 'g': 0.00, 'b': 0.30, 'w': 0.00};
+                };
+              };
+              variable_logo_led_name =         "sb_leds";
+              # The name of the addressable LED chain that contains the logo LED(s)
+              variable_logo_idx =              "1";
+              # A comma-separated list of indexes LEDs in the logo
+              variable_nozzle_led_name =       "sb_leds";
+              # The name of the addressable LED chain that contains the nozzle LED(s). This will
+              # typically be the same LED chain as the logo.
+              variable_nozzle_idx =            "2,3";
+              # A comma-separated list of indexes of LEDs in the nozzle
+              gcode = "";
+            };
+            "gcode_macro _set_sb_leds".gcode = "
+              {% set red = params.RED|default(0)|float %}
+              {% set green = params.GREEN|default(0)|float %}
+              {% set blue = params.BLUE|default(0)|float %}
+              {% set white = params.WHITE|default(0)|float %}
+              {% set led = params.LED|string %}
+              {% set idx = (params.IDX|string).split(',') %}
+              {% set transmit_last = params.TRANSMIT|default(1) %}
+
+              {% for led_index in idx %}
+                {% set transmit=transmit_last if loop.last else 0 %}
+                set_led led={led} red={red} green={green} blue={blue} white={white} index={led_index} transmit={transmit}
+              {% endfor %}
+            ";
+            "gcode_macro _set_sb_leds_by_name".gcode = "
+              {% set leds_name = params.LEDS %}
+              {% set color_name = params.COLOR %}
+              {% set color = printer["gcode_macro _sb_vars"].colors[leds_name][color_name] %}
+              {% set led = printer["gcode_macro _sb_vars"][leds_name + "_led_name"] %}
+              {% set idx = printer["gcode_macro _sb_vars"][leds_name + "_idx"] %}
+              {% set transmit = params.TRANSMIT|default(1) %}
+              _set_sb_leds led={led} red={color.r} green={color.g} blue={color.b} white={color.w} idx="{idx}" transmit={transmit}
+            ";
+            "gcode_macro _set_logo_leds".gcode = "
+              {% set red = params.RED|default(0)|float %}
+              {% set green = params.GREEN|default(0)|float %}
+              {% set blue = params.BLUE|default(0)|float %}
+              {% set white = params.WHITE|default(0)|float %}
+              {% set led = printer["gcode_macro _sb_vars"].logo_led_name %}
+              {% set idx = printer["gcode_macro _sb_vars"].logo_idx %}
+              {% set transmit=params.TRANSMIT|default(1) %}
+
+              _set_sb_leds led={led} red={red} green={green} blue={blue} white={white} idx="{idx}" transmit={transmit}
+            ";
+            "gcode_macro _set_nozzle_leds".gcode = "
+              {% set red = params.RED|default(0)|float %}
+              {% set green = params.GREEN|default(0)|float %}
+              {% set blue = params.BLUE|default(0)|float %}
+              {% set white = params.WHITE|default(0)|float %}
+              {% set led = printer["gcode_macro _sb_vars"].nozzle_led_name %}
+              {% set idx = printer["gcode_macro _sb_vars"].nozzle_idx %}
+              {% set transmit=params.TRANSMIT|default(1) %}
+              _set_sb_leds led={led} red={red} green={green} blue={blue} white={white} idx="{idx}" transmit={transmit}
+            ";
+            "gcode_macro set_logo_leds_off".gcode = "
+              {% set transmit=params.TRANSMIT|default(1) %}
+              _set_logo_leds red=0 blue=0 green=0 white=0 transmit={transmit}
+            ";
+            "gcode_macro set_nozzle_leds_on".gcode = "
+              {% set transmit=params.TRANSMIT|default(1) %}
+              _set_sb_leds_by_name leds="nozzle" color="on" transmit={transmit}
+            ";
+            "gcode_macro set_nozzle_leds_off".gcode = "
+              {% set transmit=params.TRANSMIT|default(1) %}
+              i_set_sb_leds_by_name leds="nozzle" color="off" transmit={transmit}
+            ";
+            "gcode_macro status_off".gcode = "
+              set_logo_leds_off transmit=0
+              set_nozzle_leds_off
+            ";
+            "gcode_macro status_ready".gcode = "
+              _set_sb_leds_by_name leds="logo" color="standby" transmit=0
+              _set_sb_leds_by_name leds="nozzle" color="standby" transmit=1
+            ";
+            "gcode_macro status_busy".gcode = "
+              _set_sb_leds_by_name leds="logo" color="busy" transmit=0
+              set_nozzle_leds_on
+            ";
+            "gcode_macro status_heating".gcode = "
+              _set_sb_leds_by_name leds="logo" color="heating" transmit=0
+              _set_sb_leds_by_name leds="nozzle" color="heating" transmit=1
+            ";
+            "gcode_macro status_leveling".gcode = "
+              _set_sb_leds_by_name leds="logo" color="leveling" transmit=0
+              set_nozzle_leds_on
+            ";
+            "gcode_macro status_homing".gcode = "
+              _set_sb_leds_by_name leds="logo" color="homing" transmit=0
+              set_nozzle_leds_on
+            ";
+            "gcode_macro status_cleaning".gcode = "
+              _set_sb_leds_by_name leds="logo" color="cleaning" transmit=0
+              set_nozzle_leds_on
+            ";
+            "gcode_macro status_meshing".gcode = "
+              _set_sb_leds_by_name leds="logo" color="meshing" transmit=0
+              set_nozzle_leds_on
+            ";
+            "gcode_macro status_calibrating_z".gcode = "
+              _set_sb_leds_by_name leds="logo" color="calibrating_z" transmit=0
+              set_nozzle_leds_on
+            ";
+            "gcode_macro status_printing".gcode = "
+              _set_sb_leds_by_name leds="logo" color="printing" transmit=0
+              set_nozzle_leds_on
+            ";
+	    "gcode_macro PARK".gcode = "
+	      {% set th = printer.toolhead %}
+              G0 X{th.axis_maximum.x//2} Y{th.axis_maximum.y//2} Z30
+	    ";
+            "gcode_macro G32".gcode = "
+              SAVE_GCODE_STATE NAME=STATE_G32
+              G90
+              G28
+              QUAD_GANTRY_LEVEL
+              G28
+              G90
+              PARK
+              RESTORE_GCODE_STATE NAME=STATE_G32
+            ";
+            "gcode_macro PRINT_START".gcode = "
+              {% set bedtemp = params.BED|int %}
+              {% set hotendtemp = params.EXTRUDER|int %}
+              {% set chambertemp = params.CHAMBER|default(0)|int %}
+              G28
+              QUAD_GANTRY_LEVEL
+              BED_MESH_CLEAR
+              BED_MESH_CALIBRATE
+              G90
+              G1 Z20 F3000
+              M190 S{bedtemp}                                                               ; set & wait for bed temp
+              #TEMPERATURE_WAIT SENSOR="temperature_sensor chamber" MINIMUM={chambertemp}   ; wait for chamber temp
+              # <insert your routines here>
+              M109 S{hotendtemp}                                                            ; set & wait for hotend temp
+              VORON_PURGE
+              # <insert your routines here>
+              #G28 Z                                                                        ; final z homing
+              G90                                                                           ; absolute positioning
+            ";
+            "gcode_macro PRINT_END".gcode = "
+              #   Use PRINT_END for the slicer ending script - please customise for your slicer of choice
+              # safe anti-stringing move coords
+              {% set th = printer.toolhead %}
+              {% set x_safe = th.position.x + 20 * (1 if th.axis_maximum.x - th.position.x > 20 else -1) %}
+              {% set y_safe = th.position.y + 20 * (1 if th.axis_maximum.y - th.position.y > 20 else -1) %}
+              {% set z_safe = [th.position.z + 2, th.axis_maximum.z]|min %}
+    
+              SAVE_GCODE_STATE NAME=STATE_PRINT_END
+    
+              M400                           ; wait for buffer to clear
+              G92 E0                         ; zero the extruder
+              G1 E-5.0 F1800                 ; retract filament
+    
+              TURN_OFF_HEATERS
+    
+              G90                                      ; absolute positioning
+              G0 X{x_safe} Y{y_safe} Z{z_safe} F20000  ; move nozzle to remove stringing
+              G0 X{th.axis_maximum.x//2} Y{th.axis_maximum.y - 2} F3600  ; park nozzle at rear
+              M107                                     ; turn off fan
+    
+              BED_MESH_CLEAR
+              RESTORE_GCODE_STATE NAME=STATE_PRINT_END
+            ";
+            "gcode_macro _HOME_X".gcode = "
+              # Always use consistent run_current on A/B steppers during sensorless homing
+              {% set RUN_CURRENT_X = printer.configfile.settings['tmc2209 stepper_x'].run_current|float %}
+              {% set RUN_CURRENT_Y = printer.configfile.settings['tmc2209 stepper_y'].run_current|float %}
+              {% set HOME_CURRENT = 0.7 %}
+              SET_TMC_CURRENT STEPPER=stepper_x CURRENT={HOME_CURRENT}
+              SET_TMC_CURRENT STEPPER=stepper_y CURRENT={HOME_CURRENT}
+
+              # Home
+              G28 X
+              # Move away
+              G91
+              G1 X-10 F1200
+    
+              # Wait just a second… (give StallGuard registers time to clear)
+              G4 P1000
+              # Set current during print
+              SET_TMC_CURRENT STEPPER=stepper_x CURRENT={RUN_CURRENT_X}
+              SET_TMC_CURRENT STEPPER=stepper_y CURRENT={RUN_CURRENT_Y}
+            ";
+            "gcode_macro _HOME_Y".gcode = "
+              # Set current for sensorless homing
+              {% set RUN_CURRENT_X = printer.configfile.settings['tmc2209 stepper_x'].run_current|float %}
+              {% set RUN_CURRENT_Y = printer.configfile.settings['tmc2209 stepper_y'].run_current|float %}
+              {% set HOME_CURRENT = 0.7 %}
+              SET_TMC_CURRENT STEPPER=stepper_x CURRENT={HOME_CURRENT}
+              SET_TMC_CURRENT STEPPER=stepper_y CURRENT={HOME_CURRENT}
+
+              # Home
+              G28 Y
+              # Move away
+              G91
+              G1 Y-10 F1200
+
+              # Wait just a second… (give StallGuard registers time to clear)
+              G4 P1000
+              # Set current during print
+              SET_TMC_CURRENT STEPPER=stepper_x CURRENT={RUN_CURRENT_X}
+              SET_TMC_CURRENT STEPPER=stepper_y CURRENT={RUN_CURRENT_Y}
+            ";
 	  };
 	};
 
