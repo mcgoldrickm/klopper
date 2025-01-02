@@ -1,7 +1,7 @@
 {
   description = "raspberry-pi-nix example";
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     raspberry-pi-nix.url = "github:nix-community/raspberry-pi-nix";
     home-manager = {
       url = "https://github.com/nix-community/home-manager/archive/master.tar.gz";
@@ -50,25 +50,87 @@
 	  klipper
 	  mainsail
 	  moonraker
+	  can-utils
         ];
 
         programs.fish.enable = true;
 	services.sshd.enable = true;
 
+
+        console.keyMap = "uk";
+
+        users.users.root.initialPassword = "root";
+        users.users.mcgoldrickm = {
+          isNormalUser = true;
+          description = "Michael McGoldrick";
+          extraGroups = ["networkmanager" "wheel" "video"];
+          shell = pkgs.fish;
+        };
+
+        networking = {
+          hostName = "klopper";
+          useDHCP = false;
+          interfaces = {
+            wlan0.useDHCP = true;
+            eth0.useDHCP = true;
+          };
+	  firewall.allowedTCPPorts = [ 80 7125 ];
+        };
+
+  # Enable mDNS so that our printer is adressable under http://nixprinter.local
+        services.avahi = {
+          enable = true;
+          publish = {
+            enable = true;
+            addresses = true;
+            workstation = true;
+          };
+        };
+
+        services.moonraker = {
+          user = "root";
+          enable = true;
+          address = "0.0.0.0";
+          settings = {
+            octoprint_compat = { };
+            history = { };
+            authorization = {
+              force_logins = true;
+              cors_domains = [
+                 "*.local"
+                 "*.lan"
+                 "*://app.fluidd.xyz"
+                 "*://my.mainsail.xyz"
+              ];
+              trusted_clients = [
+                "10.0.0.0/8"
+                "127.0.0.0/8"
+                "169.254.0.0/16"
+                "172.16.0.0/12"
+                "192.168.1.0/24"
+                "FE80::/10"
+                "::1/128"
+              ];
+            };
+          };
+        };
+
+        #services.fluidd.enable = true;
+	services.mainsail.enable = true;
 	services.klipper = {
 	  enable = true;
-	  firmwares = {
-	    mcu = {
-	      enable = true;
-              configFile = btt-octopus.config;
-	      serial = "/dev/serial/by-id/usb-Klipper_stm32f446xx_180018000550335331383820-if00";
-            };
-	    mcu = {
-	      enable = true;
-	      configFile = ebb-can.config;
-	      canbus_uuid = "8ca6634bd4c1";
-	    };
-	  };
+	  #firmwares = {
+	  #  mcu = {
+	  #    enable = true;
+          #    configFile = btt-octopus.config;
+	  #    serial = "/dev/serial/by-id/usb-Klipper_stm32f446xx_180018000550335331383820-if00";
+          #  };
+	  #  mcu = {
+	  #    enable = true;
+	  #    configFile = ebb-can.config;
+	  #    canbus_uuid = "8ca6634bd4c1";
+	  #  };
+	  #};
 	  settings = {
             printer = {
   	      kinematics = "corexy";
@@ -99,6 +161,7 @@
 	    pause_resume = { };
 	    display_status = { };
 	    exclude_object = { };
+	    virtual_sdcard.path = "/root/gcode-files";
 	    display = {
 	      lcd_type = "uc1701";
               cs_pin = "EXP1_3";
@@ -122,21 +185,21 @@
 	    bed_mesh = {
               speed = 120;
               horizontal_move_z = 5;
-              mesh_min = 35, 6;
-              mesh_max = 240, 198;
-              probe_count = 5, 3;
+              mesh_min = "35, 6";
+              mesh_max = "240, 198";
+              probe_count = "5, 3";
             };
             quad_gantry_level = {
-              gantry_corners = {
-                -60,-10;
-                360,370;
-	      };
-              points = {
-                50,25;
-                50,225;
-                250,225;
-                250,25;
-	      };
+              gantry_corners = "
+                -60,-10
+                360,370
+	      ";
+              points = "
+                50,25
+                50,225
+                250,225
+                250,25
+	      ";
               speed = 100;
               horizontal_move_z = 10;
               retries = 5;
@@ -167,10 +230,15 @@
               max_power = 0.6;
               min_temp = 0;
               max_temp = 120;
+	      control = "pid";
+              pid_kp = 36.899;
+              pid_ki = 1.352;
+              pid_kd = 251.836;
             };
-	    "temperature_sensor mcu" = {
-	      sensor_type = "mcu";
-	    };
+	    #"temperature_sensor mcu" = {
+	    #  sensor_type = "temperature_mcu";
+	    #  sensor_mcu = "mcu";
+	    #};
 	    "temperature_sensor raspberry_pi" = {
               sensor_type = "temperature_host";
               min_temp = 10;
@@ -193,7 +261,7 @@
               position_max = 300;
               homing_speed = 25;   #Max 100
               homing_retract_dist = 0;
-              homing_positive_dir = true
+              homing_positive_dir = true;
 	    };
             "tmc2209 stepper_x" = {
               uart_pin = "PC4";
@@ -211,7 +279,7 @@
               rotation_distance = 40;
               microsteps = 32;
               full_steps_per_rotation = 200;  #set to 400 for 0.9 degree stepper
-              endstop_pin: "tmc2209_stepper_y:virtual_endstop";
+              endstop_pin = "tmc2209_stepper_y:virtual_endstop";
               position_min = 0;
               position_endstop = 300;
               position_max = 300;
@@ -332,6 +400,7 @@
               pin = "EBBCan: PB5";
               x_offset = 0;
               y_offset = 0;
+	      z_offset = -0.360;
               speed = 10.0;
               samples = 3;
               samples_result = "median";
@@ -377,44 +446,54 @@
               initial_BLUE = 1.0;
               initial_WHITE = 0.0;
 	    };
-            "gcode_macro _sb_vars" = {
-              description = "User settings for the StealthBurner status leds. You can change the status colors and led";
-              # configurations for the logo and nozzle here.
-              variable_colors = {
-                'logo' =           { # Colors for logo states
-                  'busy' =          {'r': 0.40, 'g': 0.00, 'b': 0.00, 'w': 0.0};
-                  'cleaning' =      {'r': 0.00, 'g': 0.02, 'b': 0.50, 'w': 0.0};
-                  'calibrating_z' = {'r': 0.80, 'g': 0.00, 'b': 0.35, 'w': 0.0};
-                  'heating' =       {'r': 0.30, 'g': 0.18, 'b': 0.00, 'w': 0.0};
-                  'homing' =        {'r': 0.00, 'g': 0.60, 'b': 0.20, 'w': 0.0};
-                  'leveling' =      {'r': 0.50, 'g': 0.10, 'b': 0.40, 'w': 0.0};
-                  'meshing' =       {'r': 0.20, 'g': 1.00, 'b': 0.00, 'w': 0.0};
-                  'off' =           {'r': 0.00, 'g': 0.00, 'b': 0.00, 'w': 0.0};
-                  'printing' =      {'r': 1.00, 'g': 0.00, 'b': 0.00, 'w': 0.0};
-                  'standby' =       {'r': 0.01, 'g': 0.01, 'b': 0.01, 'w': 0.1};
-                };
-                'nozzle' = { # Colors for nozzle states
-                  'heating' = {'r': 0.80, 'g': 0.35, 'b': 0.00, 'w': 0.00};
-                  'off' =     {'r': 0.00, 'g': 0.00, 'b': 0.00, 'w': 0.00};
-                  'on' =      {'r': 0.80, 'g': 0.80, 'b': 0.80, 'w': 1.00};
-                  'standby' = {'r': 0.60, 'g': 0.00, 'b': 0.00, 'w': 0.00};
-                };
-                'thermal' = {
-                  'hot' =  {'r': 1.00, 'g': 0.00, 'b': 0.00, 'w': 0.00};
-                  'cold' = {'r': 0.30, 'g': 0.00, 'b': 0.30, 'w': 0.00};
-                };
-              };
-              variable_logo_led_name =         "sb_leds";
-              # The name of the addressable LED chain that contains the logo LED(s)
-              variable_logo_idx =              "1";
-              # A comma-separated list of indexes LEDs in the logo
-              variable_nozzle_led_name =       "sb_leds";
-              # The name of the addressable LED chain that contains the nozzle LED(s). This will
-              # typically be the same LED chain as the logo.
-              variable_nozzle_idx =            "2,3";
-              # A comma-separated list of indexes of LEDs in the nozzle
-              gcode = "";
+            "gcode_macro CANCEL_PRINT" = {
+              description = "Cancel the actual running print";
+              rename_existing = "CANCEL_PRINT_BASE";
+              gcode = "
+              TURN_OFF_HEATERS
+              CANCEL_PRINT_BASE
+              ";
             };
+            "gcode_macro _sb_vars".gcode = "
+# User settings for the StealthBurner status leds. You can change the status colors and led
+# configurations for the logo and nozzle here.
+variable_colors: {
+        'logo': { # Colors for logo states
+            'busy': {'r': 0.4, 'g': 0.0, 'b': 0.0, 'w': 0.0},
+            'cleaning': {'r': 0.0, 'g': 0.02, 'b': 0.5, 'w': 0.0},
+            'calibrating_z': {'r': 0.8, 'g': 0., 'b': 0.35, 'w': 0.0},
+            'heating': {'r': 0.3, 'g': 0.18, 'b': 0.0, 'w': 0.0},
+            'homing': {'r': 0.0, 'g': 0.6, 'b': 0.2, 'w': 0.0},
+            'leveling': {'r': 0.5, 'g': 0.1, 'b': 0.4, 'w': 0.0},
+            'meshing': {'r': 0.2, 'g': 1.0, 'b': 0.0, 'w': 0.0},
+            'off': {'r': 0.0, 'g': 0.0, 'b': 0.0, 'w': 0.0},
+            'printing': {'r': 1.0, 'g': 0.0, 'b': 0.0, 'w': 0.0},
+            'standby': {'r': 0.01, 'g': 0.01, 'b': 0.01, 'w': 0.1},
+        },
+        'nozzle': { # Colors for nozzle states
+            'heating': {'r': 0.8, 'g': 0.35, 'b': 0.0, 'w':0.0},
+            'off': {'r': 0.0, 'g': 0.0, 'b': 0.0, 'w': 0.0},
+            'on': {'r': 0.8, 'g': 0.8, 'b': 0.8, 'w':1.0},
+            'standby': {'r': 0.6, 'g': 0.0, 'b': 0.0, 'w':0.0},
+        },
+        'thermal': {
+            'hot': {'r': 1.0, 'g': 0.0, 'b': 0.0, 'w': 0.0},
+            'cold': {'r': 0.3, 'g': 0.0, 'b': 0.3, 'w': 0.0}
+        }
+    }
+variable_logo_led_name:         'sb_leds' 
+# The name of the addressable LED chain that contains the logo LED(s)
+variable_logo_idx:              '1' 
+# A comma-separated list of indexes LEDs in the logo
+variable_nozzle_led_name:       'sb_leds'
+# The name of the addressable LED chain that contains the nozzle LED(s). This will
+# typically be the same LED chain as the logo.
+variable_nozzle_idx:            '2,3'
+# A comma-separated list of indexes of LEDs in the nozzle
+gcode:
+    # This section is required.  Do Not Delete.
+
+            ";
             "gcode_macro _set_sb_leds".gcode = "
               {% set red = params.RED|default(0)|float %}
               {% set green = params.GREEN|default(0)|float %}
@@ -432,32 +511,32 @@
             "gcode_macro _set_sb_leds_by_name".gcode = "
               {% set leds_name = params.LEDS %}
               {% set color_name = params.COLOR %}
-              {% set color = printer["gcode_macro _sb_vars"].colors[leds_name][color_name] %}
-              {% set led = printer["gcode_macro _sb_vars"][leds_name + "_led_name"] %}
-              {% set idx = printer["gcode_macro _sb_vars"][leds_name + "_idx"] %}
+              {% set color = printer['gcode_macro _sb_vars'].colors[leds_name][color_name] %}
+              {% set led = printer['gcode_macro _sb_vars'][leds_name + '_led_name'] %}
+              {% set idx = printer['gcode_macro _sb_vars'][leds_name + '_idx'] %}
               {% set transmit = params.TRANSMIT|default(1) %}
-              _set_sb_leds led={led} red={color.r} green={color.g} blue={color.b} white={color.w} idx="{idx}" transmit={transmit}
+              _set_sb_leds led={led} red={color.r} green={color.g} blue={color.b} white={color.w} idx={idx} transmit={transmit}
             ";
             "gcode_macro _set_logo_leds".gcode = "
               {% set red = params.RED|default(0)|float %}
               {% set green = params.GREEN|default(0)|float %}
               {% set blue = params.BLUE|default(0)|float %}
               {% set white = params.WHITE|default(0)|float %}
-              {% set led = printer["gcode_macro _sb_vars"].logo_led_name %}
-              {% set idx = printer["gcode_macro _sb_vars"].logo_idx %}
+              {% set led = printer['gcode_macro _sb_vars'].logo_led_name %}
+              {% set idx = printer['gcode_macro _sb_vars'].logo_idx %}
               {% set transmit=params.TRANSMIT|default(1) %}
 
-              _set_sb_leds led={led} red={red} green={green} blue={blue} white={white} idx="{idx}" transmit={transmit}
+              _set_sb_leds led={led} red={red} green={green} blue={blue} white={white} idx={idx} transmit={transmit}
             ";
             "gcode_macro _set_nozzle_leds".gcode = "
               {% set red = params.RED|default(0)|float %}
               {% set green = params.GREEN|default(0)|float %}
               {% set blue = params.BLUE|default(0)|float %}
               {% set white = params.WHITE|default(0)|float %}
-              {% set led = printer["gcode_macro _sb_vars"].nozzle_led_name %}
-              {% set idx = printer["gcode_macro _sb_vars"].nozzle_idx %}
+              {% set led = printer['gcode_macro _sb_vars'].nozzle_led_name %}
+              {% set idx = printer['gcode_macro _sb_vars'].nozzle_idx %}
               {% set transmit=params.TRANSMIT|default(1) %}
-              _set_sb_leds led={led} red={red} green={green} blue={blue} white={white} idx="{idx}" transmit={transmit}
+              _set_sb_leds led={led} red={red} green={green} blue={blue} white={white} idx={idx} transmit={transmit}
             ";
             "gcode_macro set_logo_leds_off".gcode = "
               {% set transmit=params.TRANSMIT|default(1) %}
@@ -465,50 +544,50 @@
             ";
             "gcode_macro set_nozzle_leds_on".gcode = "
               {% set transmit=params.TRANSMIT|default(1) %}
-              _set_sb_leds_by_name leds="nozzle" color="on" transmit={transmit}
+              _set_sb_leds_by_name leds='nozzle' color='on' transmit={transmit}
             ";
             "gcode_macro set_nozzle_leds_off".gcode = "
               {% set transmit=params.TRANSMIT|default(1) %}
-              i_set_sb_leds_by_name leds="nozzle" color="off" transmit={transmit}
+              i_set_sb_leds_by_name leds='nozzle' color='off' transmit={transmit}
             ";
             "gcode_macro status_off".gcode = "
               set_logo_leds_off transmit=0
               set_nozzle_leds_off
             ";
             "gcode_macro status_ready".gcode = "
-              _set_sb_leds_by_name leds="logo" color="standby" transmit=0
-              _set_sb_leds_by_name leds="nozzle" color="standby" transmit=1
+              _set_sb_leds_by_name leds='logo' color='standby' transmit=0
+              _set_sb_leds_by_name leds='nozzle' color='standby' transmit=1
             ";
             "gcode_macro status_busy".gcode = "
-              _set_sb_leds_by_name leds="logo" color="busy" transmit=0
+              _set_sb_leds_by_name leds='logo' color='busy' transmit=0
               set_nozzle_leds_on
             ";
             "gcode_macro status_heating".gcode = "
-              _set_sb_leds_by_name leds="logo" color="heating" transmit=0
-              _set_sb_leds_by_name leds="nozzle" color="heating" transmit=1
+              _set_sb_leds_by_name leds='logo' color='heating' transmit=0
+              _set_sb_leds_by_name leds='nozzle' color='heating' transmit=1
             ";
             "gcode_macro status_leveling".gcode = "
-              _set_sb_leds_by_name leds="logo" color="leveling" transmit=0
+              _set_sb_leds_by_name leds='logo' color='leveling' transmit=0
               set_nozzle_leds_on
             ";
             "gcode_macro status_homing".gcode = "
-              _set_sb_leds_by_name leds="logo" color="homing" transmit=0
+              _set_sb_leds_by_name leds='logo' color='homing' transmit=0
               set_nozzle_leds_on
             ";
             "gcode_macro status_cleaning".gcode = "
-              _set_sb_leds_by_name leds="logo" color="cleaning" transmit=0
+              _set_sb_leds_by_name leds='logo' color='cleaning' transmit=0
               set_nozzle_leds_on
             ";
             "gcode_macro status_meshing".gcode = "
-              _set_sb_leds_by_name leds="logo" color="meshing" transmit=0
+              _set_sb_leds_by_name leds='logo' color='meshing' transmit=0
               set_nozzle_leds_on
             ";
             "gcode_macro status_calibrating_z".gcode = "
-              _set_sb_leds_by_name leds="logo" color="calibrating_z" transmit=0
+              _set_sb_leds_by_name leds='logo' color='calibrating_z' transmit=0
               set_nozzle_leds_on
             ";
             "gcode_macro status_printing".gcode = "
-              _set_sb_leds_by_name leds="logo" color="printing" transmit=0
+              _set_sb_leds_by_name leds='logo' color='printing' transmit=0
               set_nozzle_leds_on
             ";
 	    "gcode_macro PARK".gcode = "
@@ -536,7 +615,7 @@
               G90
               G1 Z20 F3000
               M190 S{bedtemp}                                                               ; set & wait for bed temp
-              #TEMPERATURE_WAIT SENSOR="temperature_sensor chamber" MINIMUM={chambertemp}   ; wait for chamber temp
+              #TEMPERATURE_WAIT SENSOR='temperature_sensor chamber' MINIMUM={chambertemp}   ; wait for chamber temp
               # <insert your routines here>
               M109 S{hotendtemp}                                                            ; set & wait for hotend temp
               VORON_PURGE
@@ -608,29 +687,41 @@
               SET_TMC_CURRENT STEPPER=stepper_x CURRENT={RUN_CURRENT_X}
               SET_TMC_CURRENT STEPPER=stepper_y CURRENT={RUN_CURRENT_Y}
             ";
+            "gcode_macro PAUSE" = {
+              description = "Pause the actual running print";
+              rename_existing = "PAUSE_BASE";
+              gcode = "
+                PAUSE_BASE
+                _TOOLHEAD_PARK_PAUSE_CANCEL
+	      ";
+	    };
+            "gcode_macro RESUME" = {
+              description = "Resume the actual running print";
+              rename_existing = "RESUME_BASE";
+              gcode = "
+                ##### read extrude from  _TOOLHEAD_PARK_PAUSE_CANCEL  macro #####
+                {% set extrude = printer['gcode_macro _TOOLHEAD_PARK_PAUSE_CANCEL'].extrude %}
+                #### get VELOCITY parameter if specified ####
+                {% if 'VELOCITY' in params|upper %}
+                  {% set get_params = ('VELOCITY=' + params.VELOCITY)  %}
+                {%else %}
+                  {% set get_params = '' %}
+                {% endif %}
+                ##### end of definitions #####
+                {% if printer.extruder.can_extrude|lower == 'true' %}
+                  M83
+                  G1 E{extrude} F2100
+                  {% if printer.gcode_move.absolute_extrude |lower == 'true' %} M82 {% endif %}
+                {% else %}
+                  {action_respond_info('Extruder not hot enough')}
+                {% endif %}
+                RESUME_BASE {get_params}
+	      ";
+	    };
 	  };
 	};
-
-
-	console.keyMap = "uk";
-
-        users.users.root.initialPassword = "root";
-	users.users.mcgoldrickm = {
-	  isNormalUser = true;
-	  description = "Michael McGoldrick";
-	  extraGroups = ["networkmanager" "wheel" "video"];
-	  shell = pkgs.fish;
-	};
-
-        networking = {
-          hostName = "klopper";
-          useDHCP = false;
-          interfaces = {
-            wlan0.useDHCP = true;
-            eth0.useDHCP = true;
-          };
-        };
       };
+
     in {
       nixosConfigurations = {
         klopper = nixosSystem {
