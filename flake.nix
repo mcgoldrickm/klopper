@@ -17,7 +17,7 @@
         # bcm2712 for rpi 5
         # See the docs at:
         # https://www.raspberrypi.com/documentation/computers/linux_kernel.html#native-build-configuration
-        raspberry-pi-nix.board = "bcm2711";
+        raspberry-pi-nix.board = "bcm2712";
         time.timeZone = "Europe/London";
 
         # Select internationalisation properties.
