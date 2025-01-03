@@ -70,12 +70,20 @@
         networking = {
           hostName = "klopper";
           useDHCP = false;
-          interfaces = {
-            wlan0.useDHCP = true;
-            eth0.useDHCP = true;
-          };
 	  firewall.allowedTCPPorts = [ 80 7125 ];
         };
+
+	systemd.network.enable = true;
+
+	systemd.network.networks."10-lan" = {
+          matchConfig.Name = "end0";
+          networkConfig.DHCP = "ipv4";
+        };
+
+	systemd.network.networks."20-can" = {
+	  matchConfig.Name = "can0";
+	  canConfig.BitRate = 1000000;
+	};
 
   # Enable mDNS so that our printer is adressable under http://nixprinter.local
         services.avahi = {
