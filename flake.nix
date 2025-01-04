@@ -214,6 +214,12 @@
               retry_tolerance = 0.0075;
               max_adjust = 10;
             };
+	    safe_z_home = {
+	      home_xy_position = "140,140";
+              speed = 100;
+              z_hop = 10;
+	    };
+
 	    board_pins = {
               aliases = "
                # EXP1 header
