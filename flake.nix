@@ -75,6 +75,14 @@
 
 	systemd.network.enable = true;
 
+	systemd.network.links."20-can" = {
+	  enable = true;
+	  matchConfig.Type = "can";
+          linkConfig = {
+	    TransmitQueueLength = 1024;
+	  };
+	};
+
 	systemd.network.networks."10-lan" = {
           matchConfig.Name = "end0";
           networkConfig.DHCP = "ipv4";
@@ -169,7 +177,7 @@
 	    pause_resume = { };
 	    display_status = { };
 	    exclude_object = { };
-	    virtual_sdcard.path = "/root/gcode-files";
+	    virtual_sdcard.path = "/var/lib/moonraker/gcodes";
 	    display = {
 	      lcd_type = "uc1701";
               cs_pin = "EXP1_3";
@@ -196,6 +204,7 @@
               mesh_min = "35, 6";
               mesh_max = "240, 198";
               probe_count = "5, 3";
+	      adaptive_margin = 5;
             };
             quad_gantry_level = {
               gantry_corners = "
@@ -625,7 +634,7 @@ gcode:
               G28
               QUAD_GANTRY_LEVEL
               BED_MESH_CLEAR
-              BED_MESH_CALIBRATE
+              BED_MESH_CALIBRATE ADAPTIVE=1
               G90
               G1 Z20 F3000
               M190 S{bedtemp}                                                               ; set & wait for bed temp
